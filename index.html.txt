@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Road to Zarqa</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      transition: background 1s;
+      font-family: sans-serif;
+    }
+
+    #map {
+      height: 70vh;
+      width: 100vw;
+    }
+
+    #info {
+      text-align: center;
+      padding: 10px;
+      font-size: 1.1rem;
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    #popup {
+      position: fixed;
+      bottom: 18vh;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 18px;
+      font-size: 1.1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      display: none;
+    }
+
+    body.night {
+      background-color: #001f3f;
+      color: #eee;
+    }
+    body.night #popup, body.night #info {
+      background: rgba(30, 30, 40, 0.95);
+      color: #eee;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="info">Loading route...</div>
+<div id="popup"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([31.3, 36.0], 8);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const info = document.getElementById('info');
+  const popup = document.getElementById('popup');
+  const totalDistanceKm = 250;
+
+  const maAn = [30.192, 35.738];
+  const zarqa = [32.072, 36.087];
+
+  const carIcon = L.icon({
+    iconUrl: 'https://i.imgur.com/4bXgR1L.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+
+  let carMarker = L.marker(maAn, {icon: carIcon}).addTo(map);
+  let routeCoords = [];
+  let index = 0;
+
+  carMarker.on('click', () => {
+    popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+    updatePopup(index / routeCoords.length);
+  });
+
+  function updatePopup(progress) {
+    const left = Math.round(totalDistanceKm * (1 - progress));
+    popup.textContent = Distance left: ${left} km;
+  }
+
+  function updateScenery(progress) {
+    let stage = '';
+    if (progress < 0.3) {
+      document.body.style.backgroundImage = "url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80')";
+      stage = 'Desert';
+    } else if (progress < 0.6) {
+      document.body.style.backgroundImage = "url('https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=800&q=80')";
+      stage = 'Towns';
+    } else if (progress < 0.9) {
+      document.body.style.backgroundImage = "url('https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=800&q=80')";
+      stage = 'Amman';
+    } else {
+      document.body.style.backgroundImage = "url('https://images.unsplash.com/photo-1526483360610-4b8d5d22d4d8?auto=format&fit=crop&w=800&q=80')";
+      stage = 'Zarqa';
+    }
+    info.textContent = Scenery: ${stage};
+  }
+
+  function animateCar() {
+    if (index >= routeCoords.length - 1) {
+      info.textContent = "You've arrived 🎉";
+      popup.style.display = 'none';
+      return;
+    }
+    const progress = index / routeCoords.length;
+    carMarker.setLatLng(routeCoords[index]);
+    updatePopup(progress);
+    updateScenery(progress);
+    index++;
+    setTimeout(animateCar, 120);
+  }
+
+  function getRoute() {
+    const url = https://router.project-osrm.org/route/v1/driving/${maAn[1]},${maAn[0]};${zarqa[1]},${zarqa[0]}?overview=full&geometries=geojson;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        routeCoords = data.routes[0].geometry.coordinates.map(p => [p[1], p[0]]);
+        L.polyline(routeCoords, {color: 'orange', weight: 5}).addTo(map);
+        animateCar();
+      })
+      .catch(err => {
+        info.textContent = 'Route loading failed.';
+        console.error(err);
+      });
+  }
+
+  function setDayNight() {
+    const hour = new Date().getHours();
+    if (hour >= 19 || hour < 6) {
+      document.body.classList.add('night');
+    } else {
+      document.body.classList.remove('night');
+    }
+  }
+
+  getRoute();
+  setDayNight();
+  setInterval(setDayNight, 60000);
+</script>
+
+</body>
+</html>
